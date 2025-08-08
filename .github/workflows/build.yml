@@ -15,13 +15,22 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         include:
           - new_codename: bookworm
             old_codename: bullseye
+            job_type: deb_build
+          - new_codename: bookworm
+            old_codename: bullseye
+            job_type: image_push
           - new_codename: trixie
             old_codename: bullseye
+            job_type: deb_build
+          - new_codename: trixie
+            old_codename: bullseye
+            job_type: image_push
 
     steps:
       - name: Checkout code
@@ -40,17 +49,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image and output debs locally
+      - name: Build and extract deb files (deb_build only)
+        if: matrix.job_type == 'deb_build'
         env:
+          OLD_CODENAME: ${{ matrix.old_codename }}
+          NEW_CODENAME: ${{ matrix.new_codename }}
+          PACKAGE: libssl1.1
+        run: |
+          ./build.sh --build-arg OLD_CODENAME=$OLD_CODENAME --build-arg NEW_CODENAME=$NEW_CODENAME --build-arg PACKAGE=$PACKAGE
+
+      - name: Build and push image (image_push only)
+        if: matrix.job_type == 'image_push'
+        env:
+          OLD_CODENAME: ${{ matrix.old_codename }}
+          NEW_CODENAME: ${{ matrix.new_codename }}
+          PACKAGE: libssl1.1
           tag: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ matrix.new_codename }}
         run: |
-          ./build.sh --build-arg OLD_CODENAME=${{ matrix.old_codename }} --build-arg NEW_CODENAME=${{ matrix.new_codename }} --build-arg PACKAGE=libssl1.1 -t "$tag"
+          ./build.sh --build-arg OLD_CODENAME=$OLD_CODENAME --build-arg NEW_CODENAME=$NEW_CODENAME --build-arg PACKAGE=$PACKAGE -t "$tag" --push
 
-      - name: Push Docker image to GHCR
-        run: |
-          docker push ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ matrix.new_codename }}
-
-      - name: Create or update GitHub Release and upload debs
+      - name: Create or update GitHub Release (deb_build only)
+        if: matrix.job_type == 'deb_build'
         id: release
         uses: softprops/action-gh-release@v1
         with:
@@ -62,7 +81,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload .deb files to release
+      - name: Upload .deb files to release (deb_build only)
+        if: matrix.job_type == 'deb_build'
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.release.outputs.upload_url }}
