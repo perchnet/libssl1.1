@@ -91,15 +91,6 @@ jobs:
           body: "Automated build of Debian package for ${{ matrix.new_codename }}"
           draft: false
           prerelease: false
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload .deb files to release (deb_build only)
-        if: matrix.job_type == 'deb_build'
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ./dist/*.deb
-          asset_name: ${{ matrix.new_codename }}.deb
-          asset_content_type: application/vnd.debian.binary-package
-
