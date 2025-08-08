@@ -1,0 +1,66 @@
+name: Build and Release Debian Package
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: your-image-name  # Replace with your actual image name
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        new_codename: [bookworm, trixie]
+        old_codename: [bullseye, bullseye]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU for multiarch
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image and output debs locally
+        env:
+          tag: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ matrix.new_codename }}
+        run: |
+          ./build.sh --build-arg OLD_CODENAME=${{ matrix.old_codename }} --build-arg NEW_CODENAME=${{ matrix.new_codename }} --build-arg PACKAGE=libssl1.1 -t "$tag"
+
+      - name: Push Docker image to GHCR
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ matrix.new_codename }}
+
+      - name: Create or update GitHub Release and upload debs
+        id: release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ matrix.new_codename }}
+          name: "Debian Package for ${{ matrix.new_codename }}"
+          body: "Automated build of Debian package for ${{ matrix.new_codename }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload .deb files to release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          asset_path: ./dist/*.deb
+          asset_name: ${{ matrix.new_codename }}.deb
+          asset_content_type: application/vnd.debian.binary-package
+
