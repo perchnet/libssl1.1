@@ -2,8 +2,8 @@ name: Build and Release Debian Package
 
 on:
   push:
-    branches:
-      - main
+#    branches:
+#      - main
 
 env:
   IMAGE_NAME: libssl1.1
@@ -51,22 +51,29 @@ jobs:
 
       - name: Build and extract deb files (deb_build only)
         if: matrix.job_type == 'deb_build'
-        env:
-          OLD_CODENAME: ${{ matrix.old_codename }}
-          NEW_CODENAME: ${{ matrix.new_codename }}
-          PACKAGE: libssl1.1
-        run: |
-          ./build.sh --build-arg OLD_CODENAME=$OLD_CODENAME --build-arg NEW_CODENAME=$NEW_CODENAME --build-arg PACKAGE=$PACKAGE
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          outputs: type=local,dest=./dist
+          build-args: |
+            OLD_CODENAME=${{ matrix.old_codename }}
+            NEW_CODENAME=${{ matrix.new_codename }}
+            PACKAGE=libssl1.1
 
       - name: Build and push image (image_push only)
         if: matrix.job_type == 'image_push'
-        env:
-          OLD_CODENAME: ${{ matrix.old_codename }}
-          NEW_CODENAME: ${{ matrix.new_codename }}
-          PACKAGE: libssl1.1
-          tag: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ matrix.new_codename }}
-        run: |
-          ./build.sh --build-arg OLD_CODENAME=$OLD_CODENAME --build-arg NEW_CODENAME=$NEW_CODENAME --build-arg PACKAGE=$PACKAGE -t "$tag" --push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ matrix.new_codename }}
+          build-args: |
+            OLD_CODENAME=${{ matrix.old_codename }}
+            NEW_CODENAME=${{ matrix.new_codename }}
+            PACKAGE=libssl1.1
 
       - name: Create or update GitHub Release (deb_build only)
         if: matrix.job_type == 'deb_build'
