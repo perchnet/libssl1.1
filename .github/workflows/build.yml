@@ -6,16 +6,22 @@ on:
       - main
 
 env:
-  IMAGE_NAME: your-image-name  # Replace with your actual image name
+  IMAGE_NAME: libssl1.1
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        new_codename: [bookworm, trixie]
-        old_codename: [bullseye, bullseye]
+        include:
+          - new_codename: bookworm
+            old_codename: bullseye
+          - new_codename: trixie
+            old_codename: bullseye
 
     steps:
       - name: Checkout code
