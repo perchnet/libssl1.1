@@ -57,6 +57,8 @@ jobs:
           file: ./Dockerfile
           push: false
           outputs: type=local,dest=./dist
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             OLD_CODENAME=${{ matrix.old_codename }}
             NEW_CODENAME=${{ matrix.new_codename }}
@@ -70,6 +72,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ matrix.new_codename }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             OLD_CODENAME=${{ matrix.old_codename }}
             NEW_CODENAME=${{ matrix.new_codename }}
